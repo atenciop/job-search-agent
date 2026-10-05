@@ -25,4 +25,18 @@ Build small provider spikes before selecting the initial production source:
 
 ## Decision outcome
 
-Pending POC results.
+### Dice POC Findings
+
+Dice MCP provides structured skills for individual job postings in addition
+to the full job description.
+
+This enables a two-stage matching approach:
+
+1. Use deterministic Python logic for preliminary filtering and skills matching.
+2. Use the AI model only for shortlisted jobs requiring semantic analysis,
+   match rationale, gap analysis, and final ranking.
+
+This approach may reduce LLM calls, token consumption, latency, and operating
+cost while keeping deterministic filtering explainable and testable.
+
+Final matching architecture remains pending evaluation of the other job providers.

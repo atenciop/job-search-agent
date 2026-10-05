@@ -24,11 +24,22 @@ async def main():
             arguments={
                 "keyword": "Technical Project Manager",
                 "location": "Nashville, TN",
-                "jobs_per_page": 5,
+                "jobs_per_page": 10,
+                "sort": "datePosted",
+                "posted_date": "SEVEN",
+                "workplace_types": ["Remote", "Hybrid"],
+                "employment_types": ["FULLTIME", "CONTRACTS"],
             },
         )
 
-        #  print(result.structured_content)
+        print(result.structured_content)
+
+        metadata = result.structured_content["metadata"]
+
+        print("\nSearch Metadata:")
+        print(f"Matching jobs: {metadata['total']}")
+        print(f"Sort: {metadata['sortBy']}")
+        print(f"Selected filters: {metadata['selectedFilters']}")
 
         jobs = result.structured_content["data"]
 
@@ -56,34 +67,34 @@ async def main():
 
         print(f"\nResults saved to {output_file}")
 
-        selected_job = jobs[3]  # we will be pulling the details for the 4th job
+        # selected_job = jobs[3]  #  we will be pulling the details for the 4th job
 
-        print("\nSelected job for detail retrieval:")
-        print(f"Title: {selected_job['title']}")
-        print(f"Company: {selected_job['companyName']}")
-        print(f"GUID: {selected_job['guid']}")
+        # print("\nSelected job for detail retrieval:")
+        # print(f"Title: {selected_job['title']}")
+        # print(f"Company: {selected_job['companyName']}")
+        # print(f"GUID: {selected_job['guid']}")
 
-        print("\nRetrieving full job details...")
+        # print("\nRetrieving full job details...")
 
-        details_result = await session.call_tool(
-            "get_job_details",
-            arguments={
-                "job_id": selected_job["guid"],
-            },
-        )
+        # details_result = await session.call_tool(
+        #     "get_job_details",
+        #     arguments={
+        #         "job_id": selected_job["guid"],
+        #     },
+        # )
 
-        print("\nFull job details:\n")
-        print(details_result.structured_content)
+        # print("\nFull job details:\n")
+        # print(details_result.structured_content)
 
-        details = details_result.structured_content
+        # details = details_result.structured_content
 
-        print("\nFull Description:\n")
-        print(details["description"])
+        # print("\nFull Description:\n")
+        # print(details["description"])
 
-        print("\nSkills:\n")
+        # print("\nSkills:\n")
 
-        for skill in details["skills"]:
-            print(f"- {skill['name']}")
+        # for skill in details["skills"]:
+        #     print(f"- {skill['name']}")
 
 
 if __name__ == "__main__":
