@@ -7,7 +7,9 @@ authors = [
     { name = "Pedro Atencio", email = "25673398+atenciop@users.noreply.github.com" }
 ]
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "mcp>=2.3.0",
+]
 
 [project.scripts]
 job-search-agent = "job_search_agent:main"
