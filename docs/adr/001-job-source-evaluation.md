@@ -1,218 +1,373 @@
 # ADR-001: Job Source Integration Evaluation
 
-- Status: Proposed
+- **Status:** Accepted
+- **Date:** 2026-10-09
+- **Project:** Job Search Agent
+- **Decision:** Select Dice MCP and Adzuna REST API as the initial job-data providers for V1.
 
-## Context
+## 1. Context
 
-The Job Search Agent requires reliable programmatic access to current job postings. Candidate providers include Dice, ZipRecruiter, and Adzuna.
+The Job Search Agent requires reliable programmatic access to current job postings from external providers.
 
-## Decision
+The application is intended to:
 
-Build small provider spikes before selecting the initial production source:
+- Retrieve job opportunities from multiple sources.
+- Normalize provider-specific data into a common job model.
+- Identify and remove duplicate listings.
+- Apply user-defined search and relevance filters.
+- Evaluate job/resume fit using deterministic logic and AI.
+- Explain candidate strengths, qualification gaps, and match rationale.
+- Generate an HTML report containing ranked opportunities and application links.
 
-- Dice — MCP
+Before incorporating providers into the application, standalone proof-of-concept (POC) implementations were developed to validate actual integration behavior.
+
+The initial providers evaluated were:
+
+- Dice — Model Context Protocol (MCP)
 - ZipRecruiter — MCP
 - Adzuna — REST API
-  Evaluate each for:
-- integration complexity
-- search quality
-- description completeness
-- metadata quality
-- URLs
-- filtering
-- reliability
-- cloud compatibility
 
-## Decision outcome
+USAJOBS and other job APIs were identified as possible alternatives but were not evaluated through completed POCs.
 
-### Dice POC Findings
+An additional project objective is to demonstrate both MCP and conventional REST API integration in a professional portfolio application.
 
-Dice MCP provides structured skills for individual job postings in addition
-to the full job description.
+## 2. Decision Drivers
 
-This enables a two-stage matching approach:
+Providers were evaluated against the following criteria:
 
-1. Use deterministic Python logic for preliminary filtering and skills matching.
-2. Use the AI model only for shortlisted jobs requiring semantic analysis,
-   match rationale, gap analysis, and final ranking.
-
-This approach may reduce LLM calls, token consumption, latency, and operating
-cost while keeping deterministic filtering explainable and testable.
-
-Final matching architecture remains pending evaluation of the other job providers.
-
-# ADR-001: Job Source Integration Evaluation
-
-## Status
-
-Proposed
-
-## Date
-
-2026-10-07
-
-## Context
-
-The Job Search Agent requires access to current job postings from external job sources.
-
-The application is intended to aggregate job opportunities, normalize results, remove duplicates, apply user-defined filters, and eventually use AI to evaluate job/resume fit and explain strengths and gaps.
-
-Before integrating job providers into the main application, standalone proof-of-concept (POC) implementations are being developed.
-
-The purpose of the POCs is to verify actual integration behavior rather than selecting providers based only on documentation.
-
-The initial providers considered were:
-
-- Dice – MCP
-- ZipRecruiter – MCP
-- Adzuna – REST API
-- USAJOBS – REST API
-
-An additional objective is to demonstrate more than one integration pattern in the portfolio. Therefore, a combination of MCP and conventional REST API integration is preferred over multiple providers using the same integration mechanism.
-
-## Decision Drivers
-
-Providers will be evaluated based on:
-
-- Reliability
+- Reliability and successful job retrieval
 - Integration complexity
-- Search quality
-- U.S. job coverage
-- Relevance to technology and project/delivery management roles
+- Search quality and relevance
+- Coverage of U.S. technology and project/delivery management positions
 - Job-description completeness
-- Structured metadata
-- Job URLs
-- Filtering capabilities
+- Availability of structured job metadata
+- Job URLs and application navigation
+- Search filtering capabilities
 - Authentication requirements
-- Rate limits
-- Terms/access restrictions
-- Suitability for AI-based fit analysis
-- Local development support
+- Rate limits and usage restrictions
+- Suitability for AI-based job/resume matching
+- Local development feasibility
 - Future cloud deployment compatibility
-- Portfolio and learning value
+- Portfolio demonstration and learning value
 
-## ZipRecruiter Evaluation
+Actual POC results were prioritized over documented capabilities alone.
 
-ZipRecruiter provides an HTTP MCP endpoint at:
+## 3. Provider Evaluation
+
+### 3.1 Dice MCP
+
+**POC Result: PASS**
+
+Dice provides an MCP endpoint accessible through the Python MCP SDK.
+
+The POC successfully demonstrated:
+
+- MCP session initialization and tool discovery.
+- Job searches using `search_jobs`.
+- Retrieval of full job details using `get_job_details`.
+- Access to company information through `get_company`.
+- Server-side search filtering and sorting.
+- Structured job metadata and job URLs.
+- Structured skills associated with individual job postings.
+
+**Strengths**
+
+- Full job descriptions support detailed AI-assisted qualification analysis.
+- Structured skills support deterministic preliminary matching.
+- MCP integration provides a useful example of an emerging integration architecture.
+- Full details can be retrieved selectively for shortlisted jobs, potentially reducing API calls and AI token consumption.
+
+**Limitations**
+
+- Full descriptions contain HTML and require appropriate text processing.
+- Salary information is not consistently normalized.
+- Results can contain adjacent roles and potential duplicates.
+- Remote positions may appear in geographically constrained searches.
+- Dice requires disclosure of AI assistance when presenting results.
+- Cloud deployment feasibility has not yet been established.
+
+**Conclusion**
+
+Dice is the preferred V1 provider for detailed job information and AI-assisted resume matching.
+
+### 3.2 ZipRecruiter MCP
+
+**POC Result: DEFER**
+
+ZipRecruiter provides an MCP endpoint at:
 
 `https://api.ziprecruiter.com/mcp`
 
-Its MCP documentation describes a `search_jobs` tool supporting keyword search and filters including location, radius, country, salary, recency, workplace type, employment type, and seniority.
+Its documentation describes a `search_jobs` tool supporting keywords, location, radius, country, salary, recency, workplace type, employment type, and seniority filters.
 
-A standalone Python POC was created using the MCP Python SDK.
+A standalone Python MCP client was implemented.
 
-### Successful Tests
+**Successful Tests**
 
-The client was able to:
-
-- Establish communication with the MCP endpoint.
-- Successfully initialize MCP sessions during multiple test runs.
-- Negotiate MCP protocol version `2025-11-25`.
-- Receive server identification:
+- Communication with the endpoint was established.
+- MCP sessions initialized successfully during multiple test runs.
+- Protocol version `2025-11-25` was negotiated.
+- Server identification was returned:
   - Name: `jobseeker-mcp`
   - Version: `1.0.0`
-- Receive server capabilities advertising both Tools and Resources support.
+- The server advertised Tools and Resources capabilities.
 
-### Problems Observed
+**Problems Observed**
 
-The following operations returned MCP error `-32603` ("Server returned an error response"):
+Reliable job retrieval could not be demonstrated.
 
-- `tools/list`
-- `resources/list`
-- `tools/call` using `search_jobs`
+Observed failures included:
 
-MCP initialization also intermittently returned `-32603`.
+- `tools/list` returning MCP error `-32603`.
+- `resources/list` returning MCP error `-32603`.
+- Direct `tools/call` of `search_jobs` returning MCP error `-32603`.
+- Intermittent MCP initialization failures.
+- Earlier HTTP 409 responses.
+- HTTP 429 Too Many Requests when testing independently with MCP Inspector.
 
-Earlier testing encountered HTTP 409 responses.
+The independent Inspector test provided additional evidence that the problems were not limited to the Python implementation.
 
-To determine whether the problem was specific to the Python MCP implementation, the endpoint was independently tested using MCP Inspector.
+Separate ZipRecruiter documentation confirms rate limiting for its Embedded Sponsorship API, but those limits cannot be assumed to apply to the Job Search MCP endpoint.
 
-The Inspector request returned:
+**Conclusion**
 
-`HTTP 429 – Too Many Requests`
+ZipRecruiter is deferred from V1 because the POC did not establish sufficiently reliable end-to-end job retrieval.
 
-This demonstrated that access/reliability problems were not limited to the Python application.
+It may be reevaluated if endpoint reliability, access requirements, or integration documentation improves.
 
-ZipRecruiter's separate Partner Platform documentation confirms that some ZipRecruiter APIs implement rate limiting and use HTTP 429 responses. However, that documentation describes the Embedded Sponsorship API rather than the Job Search MCP endpoint and therefore does not establish the MCP endpoint's specific rate-limit policy.
+### 3.3 Adzuna REST API
 
-### ZipRecruiter Conclusion
+**POC Result: PASS — With Limitations**
 
-The POC did not demonstrate reliable end-to-end retrieval of jobs from ZipRecruiter.
+Adzuna provides a conventional REST API for job discovery.
 
-ZipRecruiter will therefore not be included in Job Search Agent V1.
+The POC used:
 
-This does not permanently reject ZipRecruiter as a provider. It is deferred for reevaluation in a future version if MCP reliability, access guidance, or rate-limit documentation improves.
+`GET https://api.adzuna.com/v1/api/jobs/us/search/1`
 
-## V1 Integration Strategy
+Authentication was implemented using `app_id` and `app_key`, stored locally in environment configuration excluded from Git.
 
-V1 should preferably contain:
+Python `requests` was used to make HTTP requests and process JSON responses.
 
-1. One MCP-based job provider.
-2. One conventional REST API job provider.
+**Successful Tests**
 
-Dice is currently the preferred MCP provider, subject to completion of its POC evaluation.
+- API authentication and connectivity returned HTTP 200.
+- The initial Nashville Technical Project Manager search reported 294 matching jobs.
+- Structured JSON responses included job IDs, titles, companies, locations, posting dates, description snippets, salary fields, categories, and redirect URLs.
+- Seven-day recency filtering returned 58 matches, with all 10 inspected postings dated today or yesterday.
+- An Atlanta geographic search returned 111 matches, with inspected jobs located in the Atlanta area.
+- Full-time filtering produced results consistent with the requested employment type during spot checks.
+- A $120,000 salary filter reduced the Nashville result count from 57 to 27.
+- Job listing URLs opened successfully.
+- Complete job descriptions were available on Adzuna's website.
+- Apply buttons navigated to employer or recruiter application pages.
 
-Adzuna is a REST API candidate.
+The POC also demonstrated practical usefulness: retrieved listings were used to identify job opportunities and submit actual applications.
 
-However, Adzuna's API documentation indicates that the returned job description can be a snippet rather than a complete job description. This could reduce its usefulness for AI-based resume/job fit analysis.
+**Strengths**
 
-Adzuna should therefore be compared with other legitimate job APIs before the V1 REST provider is finalized.
+- Straightforward REST integration using standard Python libraries.
+- Useful structured metadata.
+- Effective recency and geographic filtering.
+- Support for employment-type and salary search criteria.
+- Working links to complete job listings and application pages.
+- Complementary job discovery coverage.
 
-## Proposed Architecture
+**Limitations**
 
-    Job Provider
-         |
-         +-- Dice MCP -------- DiceAdapter
-         |
-         +-- REST API -------- RestProviderAdapter
-                                  |
-                                  v
-                           Normalized Job Model
-                                  |
-                           Deduplication / Filters
-                                  |
-                              AI Analysis
-                                  |
-                               Ranking
-                                  |
-                             HTML Report
+- All ten initial API description samples were truncated to approximately 500 characters.
+- Complete descriptions were not available through the tested API response.
+- Some search results were not closely relevant to Technical Project Management.
+- Salary filters may include jobs whose ranges overlap the requested threshold rather than requiring the lower bound to meet it.
+- Salary information may be predicted and must be labeled appropriately.
+- Similar listings may represent either duplicates or distinct openings.
+- Geographic location alone does not reliably identify remote, hybrid, or on-site work.
+- Adzuna pages may present optional email-alert signup prompts before displaying listings.
 
-Each provider-specific adapter should isolate external integration details from the rest of the application.
+**Conclusion**
 
-This allows providers to be added, removed, or replaced without significantly changing downstream processing.
+Adzuna is suitable as a complementary V1 job-discovery provider.
 
-## Consequences
+Its description limitations make it less suitable than Dice for comprehensive AI-based resume/job matching.
+
+Adzuna results should therefore support preliminary relevance assessment and navigation to complete job postings.
+
+## 4. Decision
+
+**Select Dice MCP and Adzuna REST API as the initial Job Search Agent V1 providers.**
+
+The providers will have complementary responsibilities:
+
+| Provider         | V1 Responsibility                                                                               |
+| ---------------- | ----------------------------------------------------------------------------------------------- |
+| Dice MCP         | Rich job data, structured skills, detailed AI-assisted matching                                 |
+| Adzuna REST      | Additional job discovery, search filtering, preliminary relevance assessment, application links |
+| ZipRecruiter MCP | Deferred from V1                                                                                |
+
+The application will distinguish between assessments based on full job descriptions and assessments based only on limited description snippets.
+
+ZipRecruiter will not be a required dependency for V1.
+
+## 5. Proposed Integration Architecture
+
+The application will use provider-specific adapters that normalize external data into a common job representation.
+
+```text
+                 Job Search Agent
+                         |
+                  Job Search Request
+                         |
+             +-----------+-----------+
+             |                       |
+         Dice MCP                Adzuna REST
+             |                       |
+        DiceAdapter             AdzunaAdapter
+             |                       |
+             +-----------+-----------+
+                         |
+                 Normalized Job Model
+                         |
+                Deduplication / Filters
+                         |
+              Preliminary Relevance Match
+                         |
+                 AI Analysis (as needed)
+                         |
+                    Job Ranking
+                         |
+                    HTML Report
+```
+
+The normalized job model should preserve, where available:
+
+- Provider name and provider-specific job ID
+- Job title and company
+- Location and work arrangement
+- Posting date
+- Job description and completeness indicator
+- Structured skills
+- Salary range and prediction indicator
+- Source URL
+- Employment type
+- Relevant job categories
+
+Provider-specific adapters will isolate integration details from downstream application logic.
+
+The detailed adapter interface and data-model design will be addressed during implementation and may be documented in a separate ADR if architectural trade-offs require it.
+
+## 6. Matching Strategy
+
+A two-stage matching approach is preferred.
+
+**Stage 1 — Deterministic Filtering**
+
+Use Python logic to:
+
+- Apply user-defined search constraints.
+- Remove obviously irrelevant positions.
+- Identify potential duplicates.
+- Compare available structured skills and metadata.
+- Shortlist promising opportunities.
+
+**Stage 2 — AI-Assisted Analysis**
+
+Use AI selectively for shortlisted jobs to:
+
+- Evaluate semantic alignment between the resume and job requirements.
+- Explain strengths and qualification gaps.
+- Produce a match rationale.
+- Support final ranking.
+
+Detailed AI matching should use complete job descriptions when available.
+
+For Adzuna listings with truncated descriptions, the application should identify the assessment as preliminary rather than presenting it as comprehensive.
+
+This approach is intended to control LLM token consumption, latency, and operating cost while maintaining explainability.
+
+The precise matching algorithm and scoring methodology remain implementation decisions.
+
+## 7. Consequences
 
 ### Positive
 
-- V1 is not dependent on an integration that could not be demonstrated reliably.
-- Provider-specific behavior is isolated behind adapters.
+- V1 has two providers with demonstrated local job retrieval.
 - The portfolio demonstrates both MCP and REST API integration.
-- Future providers can be added incrementally.
-- Provider reliability is validated before architectural commitment.
-- The POC process provides evidence supporting architectural decisions.
+- Dice provides richer data for detailed AI matching.
+- Adzuna expands job discovery coverage.
+- Provider-specific integration logic can be isolated behind adapters.
+- Additional providers can be introduced incrementally.
+- The application avoids depending on an MCP endpoint that could not reliably retrieve jobs.
+- The decision is supported by reproducible POCs and observed results.
+- Adzuna has already demonstrated practical value through actual job applications.
 
-### Negative
+### Negative / Trade-offs
 
-- ZipRecruiter will not be available in V1 despite being a recognizable job-search platform.
-- Another REST API provider must be evaluated.
-- Job coverage will initially be narrower than originally envisioned.
+- Two integration mechanisms increase implementation and testing complexity.
+- Provider responses differ in completeness and metadata quality.
+- Adzuna's truncated descriptions limit automated fit analysis.
+- Duplicate detection across providers will require additional logic.
+- Salary and work-arrangement information may require normalization and qualification.
+- Provider availability and reliability may vary independently.
+- The application must communicate different levels of match confidence.
+- V1 job coverage will not include ZipRecruiter.
 
-## Deferred
+## 8. Risks and Outstanding Validation
+
+The POCs establish local technical feasibility, not production readiness.
+
+The following require further validation:
+
+- Cloud connectivity and deployment compatibility
+- Provider API quotas and usage limits
+- Authentication and secret management in production
+- Applicable API terms, attribution, and redistribution requirements
+- Reliability under repeated searches
+- Pagination and larger result sets
+- Cross-provider duplicate detection
+- Error handling, timeouts, retries, and backoff
+- Data normalization and validation
+- AI matching quality and operating cost
+- User-facing disclosure of AI-assisted analysis
+
+These concerns should be addressed before public production deployment.
+
+## 9. Deferred Work
 
 - ZipRecruiter MCP integration
-- Additional job-board providers
-- Provider health/failover logic
-- Advanced rate-limit handling
+- Indeed integration pending a suitable officially supported access path
+- Additional REST API providers, including USAJOBS
+- Provider health monitoring and failover
+- Advanced retry and rate-limit management
 - Scheduled job retrieval
-- Automated provider retry/backoff strategies
+- Automated full-description acquisition from other sources unless an authorized integration method is established
+- Advanced semantic matching and ranking optimization
 
-## Next Steps
+## 10. Implementation Next Steps
 
-1. Complete Dice MCP POC and document results.
-2. Evaluate Adzuna REST API.
-3. Research at least one alternative REST job API.
-4. Compare REST candidates.
-5. Select V1 REST provider.
-6. Update this ADR from `Proposed` to `Accepted`.
-7. Implement provider adapters only after provider selection.
+1. Complete provider spike documentation and close the evaluation work in Jira.
+2. Define the normalized `Job` model.
+3. Implement `DiceAdapter` and `AdzunaAdapter`.
+4. Normalize job search results from both providers.
+5. Implement preliminary relevance filtering and duplicate detection.
+6. Add selective AI-assisted matching and explanations.
+7. Generate an HTML report containing ranked jobs and application links.
+8. Validate provider usage requirements and cloud deployment before public release.
+
+## 11. Decision Summary
+
+**Accepted: October 9, 2026**
+
+Job Search Agent V1 will integrate Dice MCP and Adzuna REST API.
+
+Dice will provide the primary source of detailed job information for AI-assisted matching. Adzuna will provide complementary discovery coverage and preliminary relevance analysis.
+
+ZipRecruiter is deferred because reliable job retrieval was not demonstrated during its POC.
+
+The selected architecture balances demonstrated feasibility, useful job coverage, implementation simplicity, and portfolio learning value.
+
+## 12. Supporting Evidence
+
+- `spikes/dice/README.md` — Dice MCP evaluation
+- `spikes/ziprecruiter/README.md` — ZipRecruiter MCP evaluation
+- `spikes/adzuna/README.md` — Adzuna REST evaluation
+- `project-notes.md` — chronological test results, decisions, and technical lessons

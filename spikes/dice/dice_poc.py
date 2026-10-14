@@ -1,3 +1,5 @@
+# to run in virtual environment
+# uv run python .\spikes\dice\dice_poc.py
 import asyncio
 import json
 
@@ -27,8 +29,8 @@ async def main():
                 "jobs_per_page": 10,
                 "sort": "datePosted",
                 "posted_date": "SEVEN",
-                "workplace_types": ["Remote", "Hybrid"],
-                "employment_types": ["FULLTIME", "CONTRACTS"],
+                # "workplace_types": ["Remote", "Hybrid"],
+                # "employment_types": ["FULLTIME", "CONTRACTS"],
             },
         )
 

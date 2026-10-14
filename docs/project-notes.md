@@ -79,7 +79,7 @@ architectural dependency.
 
 ### Work Completed
 
-- Reviewed ZipRecruititer Job Search MCP documentation.
+- Reviewed ZipRecruiter Job Search MCP documentation.
 - Created a standalone Python MCP client.
 - Connected to the ZipRecruiter MCP endpoint.
 - Successfully initialized MCP sessions during multiple test runs.
@@ -214,3 +214,166 @@ making the final selection.
 
 Evaluate REST API provider candidates and select the provider to pair with
 Dice for V1.
+
+---
+
+## 2026-10-09 — Adzuna REST API Provider Spike
+
+### Objective
+
+Determine whether the Adzuna REST API can provide reliable job discovery, useful search filtering, structured job metadata, and working application links for Job Search Agent V1.
+
+Evaluate whether Adzuna can complement Dice MCP as a second job-data provider.
+
+### Work Completed
+
+- Registered for Adzuna API access and obtained application credentials.
+- Configured credentials using a local `.env` file excluded from Git.
+- Installed Python `requests` and `python-dotenv` dependencies using `uv`.
+- Created a standalone Python REST API client in `spikes/adzuna/adzuna_poc.py`.
+- Successfully authenticated and executed job searches using the US jobs endpoint.
+- Retrieved structured JSON responses and saved results locally in `output/`.
+- Tested posting recency, geographic location, full-time employment, and salary filtering.
+- Inspected job metadata, description completeness, and potential duplicates.
+- Manually verified job listing links and navigation to application pages.
+- Used Adzuna search results to identify actual job opportunities and submit applications.
+
+### Successful Findings
+
+**API Connectivity and Data Retrieval**
+
+- REST API requests returned HTTP 200.
+- Authentication using `app_id` and `app_key` worked.
+- The initial Nashville Technical Project Manager search reported 294 matching jobs and returned 10 records.
+- JSON responses contained structured fields including job ID, title, company, location, posting date, description, salary information, category, and redirect URL.
+- The integration was straightforward using Python `requests`, without MCP session initialization or tool discovery.
+
+**Posting Recency**
+
+- Added `max_days_old=7` and `sort_by=date` parameters.
+- The Nashville search reported 58 matching jobs.
+- All 10 inspected results had posting dates from the current or previous day.
+- The results supported the usefulness of server-side recency filtering.
+
+**Geographic Filtering**
+
+- Changed the search location from Nashville to Atlanta.
+- Adzuna reported 111 matching jobs.
+- Inspected results were geographically relevant to the Atlanta area.
+- Some geographically associated jobs included remote-work options.
+- Geographic location and work arrangement should be treated as separate attributes.
+
+**Full-Time Employment Filtering**
+
+- Tested the `full_time=1` parameter.
+- Spot checks showed full-time positions in the filtered results.
+- An Atlanta listing that did not indicate full-time employment was no longer returned.
+- Filtering appeared effective, although complete employment-type field coverage was not established.
+
+**Salary Filtering**
+
+- Tested `salary_min=120000`.
+- The Nashville matching-job count decreased from 57 to 27.
+- Some returned positions had salary ranges with lower bounds below $120,000.
+- One example had a salary range of $91,400–$187,000.
+- This suggests the provider may include positions whose salary ranges overlap the requested threshold.
+- The exact filtering semantics were not independently established.
+- Salary values may be predicted or employer-provided, as indicated by `salary_is_predicted`.
+
+**Job Links and Application Navigation**
+
+- Verified that Adzuna job links opened successfully.
+- Some pages presented an optional email-alert signup prompt that could be dismissed.
+- Adzuna displayed complete job descriptions on its website.
+- The Apply button led to the employer's or recruiter’s application page.
+- Technical Project Manager job links were also successfully verified.
+- The POC produced practical value: results were used to identify jobs and submit applications.
+
+### Key Limitations
+
+**Incomplete API Descriptions**
+
+- All 10 descriptions in the initial sample were truncated to approximately 500 characters.
+- Complete descriptions were visible on Adzuna's website but were not supplied in the tested API responses.
+- These snippets can support preliminary relevance analysis but are insufficient for comprehensive resume-to-job qualification matching.
+- The V1 application should not assume it can automatically retrieve full descriptions from Adzuna's website.
+
+**Search Relevance**
+
+- Some results were not closely related to Technical Project Management.
+- An Instructional Designer position appeared in the Technical Project Manager search.
+- Provider search results require additional relevance filtering before being presented to users.
+
+**Salary Interpretation**
+
+- Salary filtering does not necessarily mean that every returned job's minimum salary meets the requested threshold.
+- Predicted salary values must be distinguished from employer-provided compensation.
+- The application should display available salary ranges and avoid overstating salary certainty.
+
+**Potential Duplicates**
+
+- Two Eliassen Group listings had the same job title but different job IDs, descriptions, and reference numbers.
+- Similar titles and companies are not sufficient evidence that listings are duplicates.
+- Duplicate detection should consider multiple attributes.
+
+**Posting Dates and Work Arrangement**
+
+- API posting dates may reflect when jobs were indexed or added to Adzuna rather than the employer's original publication date.
+- Remote, hybrid, and on-site arrangements may require additional classification because geographic location alone is insufficient.
+
+### Architecture Implications
+
+- Adzuna can complement Dice by expanding job discovery coverage.
+- Dice remains preferable for detailed AI matching because it provides fuller job descriptions and structured skills.
+- Adzuna results should support preliminary matching based on available metadata and snippets.
+- Provider-specific results should be normalized into a common `Job` model.
+- The normalized model should preserve provider name, provider job ID, source URL, description completeness, salary prediction status, and other available metadata.
+- Deterministic filtering should remove obviously irrelevant results before AI analysis.
+- Match explanations should distinguish preliminary assessments from those based on full job descriptions.
+- The application should provide working source links so users can review complete postings and apply.
+- The adapter architecture should isolate differences between MCP and REST integrations.
+
+### Technical Lessons
+
+- A successful HTTP response confirms connectivity but does not establish that the provider satisfies application requirements.
+- REST APIs can be evaluated incrementally by changing one query parameter at a time.
+- Saving JSON responses makes it easier to inspect data structures and identify limitations.
+- API filtering semantics must be validated against actual returned data.
+- Manual navigation testing is useful when an API supplies redirect URLs but incomplete descriptions.
+- Technical POCs should evaluate business usefulness as well as integration feasibility.
+
+### Decision
+
+**Select Adzuna REST as the secondary job-discovery provider for Job Search Agent V1.**
+
+Use Dice MCP as the preferred source for detailed job information and AI-assisted matching.
+
+Use Adzuna REST for additional discovery coverage, search filtering, preliminary relevance assessment, and navigation to complete job postings.
+
+This decision is based on demonstrated local API functionality, usable structured data, effective search filtering, working application links, and practical usefulness during the job search.
+
+Adzuna's limited API descriptions must be explicitly accommodated in the application design.
+
+### Result
+
+**Local technical feasibility: PASS**
+
+**V1 provider suitability: ACCEPTED, with documented limitations**
+
+Cloud deployment, API quotas, production reliability, and applicable usage requirements remain to be validated.
+
+### V1 Provider Direction
+
+- **Dice MCP:** Selected for rich job data and detailed matching.
+- **Adzuna REST:** Selected for complementary job discovery.
+- **ZipRecruiter MCP:** Deferred because reliable end-to-end job retrieval was not demonstrated.
+- **Indeed integrations:** Deferred pending a suitable officially supported integration path.
+
+### Next
+
+1. Update the Adzuna spike README with test results and limitations.
+2. Update ADR-001 to document the V1 provider selection.
+3. Complete the provider-evaluation Jira work.
+4. Define a common normalized `Job` data model.
+5. Implement separate Dice MCP and Adzuna REST provider adapters.
+6. Begin integrating provider results into the Job Search Agent application.
